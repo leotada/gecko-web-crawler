@@ -30,6 +30,15 @@ def find_links(html: str) -> List[str]:
     return re.findall(r'href="(.+?)"', html)
 
 
+def find_assets(html: str) -> List[str]:
+    """
+    Return a list of assets found in the given HTML string
+    """
+    return re.findall(
+        r'"([^"]+\.(?:css|js|jpg|jpeg|gif|tiff|png|bmp|svg|ico))"',
+        html, flags=re.IGNORECASE)
+
+
 def search_on_page(base_url: str, result_map: dict) -> bool:
     """
     Receive a url and a result map and do a search of links and assets on the
@@ -44,8 +53,8 @@ def search_on_page(base_url: str, result_map: dict) -> bool:
     if page_html is None:
         return False
 
+    # search for links
     urls = find_links(page_html)
-    print(urls)
     for url in urls:
         if url[0] == '/':
             result['urls'].append(base_url + url)
@@ -53,6 +62,10 @@ def search_on_page(base_url: str, result_map: dict) -> bool:
             result['urls'].append(f'{base_url}/{url}')
         elif get_domain(url) == get_domain(base_url):
             result['urls'].append(url)
+
+    # search for assets
+    result['assets'] = find_assets(page_html)
+
     result_map[base_url] = result
     return True
 
@@ -61,7 +74,8 @@ def main() -> None:
     base_url = 'https://elixir-lang.org'
     result_map: Dict[str, Dict] = {}
     # TODO request async
-    search_on_page(base_url, result_map)
+    r = search_on_page(base_url, result_map)
+    print(r)
     print(result_map)
 
 
