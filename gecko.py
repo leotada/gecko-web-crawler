@@ -1,7 +1,9 @@
 from urllib import request
+import urllib
 from http import HTTPStatus
-import re
 from typing import List, Optional, Dict
+import re
+import json
 
 
 def get_domain(url: str) -> Optional[str]:
@@ -16,18 +18,34 @@ def get_html_from_url(url: str, timeout: int = 10) -> Optional[str]:
     """
     Get HTML string after making a url request
     """
-    req = request.urlopen(url, timeout=timeout)
-    if req.status == HTTPStatus.OK:
-        data: str = req.read().decode('utf-8')
-        return data
-    return None
+    try:
+        req = request.urlopen(url, timeout=timeout)
+        if req.status == HTTPStatus.OK:
+            data: str = req.read().decode('utf-8')
+            return data
+        return None
+    except urllib.error.HTTPError:
+        return None
 
 
 def find_links(html: str) -> List[str]:
     """
     Return a list of links found in the given HTML string
     """
-    return re.findall(r'href="(.+?)"', html)
+    urls = re.findall(r'href="(.+?)"', html)
+    extensions = ['css', 'js', 'jpg', 'jpeg', 'gif', 'tiff', 'png', 'bmp',
+                  'svg', 'ico', 'xml', 'pdf']
+    result = []
+    for url in urls:
+        url_low: str = url.lower()
+        asset = False
+        for ext in extensions:
+            if url_low.endswith(ext):
+                asset = True
+                break
+        if not asset:
+            result.append(url_low)
+    return result
 
 
 def find_assets(html: str) -> List[str]:
@@ -35,11 +53,11 @@ def find_assets(html: str) -> List[str]:
     Return a list of assets found in the given HTML string
     """
     return re.findall(
-        r'"([^"]+\.(?:css|js|jpg|jpeg|gif|tiff|png|bmp|svg|ico))"',
+        r'"([^"]+\.(?:css|js|jpg|jpeg|gif|tiff|png|bmp|svg|ico|pdf))"',
         html, flags=re.IGNORECASE)
 
 
-def search_on_page(base_url: str, result_map: dict) -> bool:
+def search_on_page(root_url: str, base_url: str, result_map: dict) -> bool:
     """
     Receive a url and a result map and do a search of links and assets on the
     page accessing url.
@@ -57,9 +75,9 @@ def search_on_page(base_url: str, result_map: dict) -> bool:
     urls = find_links(page_html)
     for url in urls:
         if url[0] == '/':
-            result['urls'].append(base_url + url)
+            result['urls'].append(root_url + url)
         elif get_domain(url) is None:
-            result['urls'].append(f'{base_url}/{url}')
+            result['urls'].append(f'{root_url}/{url}')
         elif get_domain(url) == get_domain(base_url):
             result['urls'].append(url)
 
@@ -71,12 +89,37 @@ def search_on_page(base_url: str, result_map: dict) -> bool:
 
 
 def main() -> None:
-    base_url = 'https://elixir-lang.org'
+    root_url = 'https://elixir-lang.org'
+    save_urls = False
     result_map: Dict[str, Dict] = {}
-    # TODO request async
-    r = search_on_page(base_url, result_map)
-    print(r)
-    print(result_map)
+    queue = [root_url]
+    count = 0
+
+    def run() -> int:
+        count = 0
+        current_url = queue[0]
+        print('URL: ', current_url)
+        result = search_on_page(root_url, current_url, result_map)
+        if result:
+            count += 1
+            queue.extend(result_map[current_url]['urls'])
+        queue.pop(0)
+        return count
+
+    while queue:
+        r = run()
+        count += r
+        print('Queue: ', len(queue))
+        print(f'Requests: {count}')
+
+    if not save_urls:
+        for key, value in result_map.items():
+            del value['urls']
+    print(f'Total Requests: {count}')
+    result_json = json.dumps(result_map)
+    print(result_json)
+    with open('output.json', 'w') as output_file:
+        output_file.write(result_json)
 
 
 if __name__ == '__main__':
