@@ -109,7 +109,7 @@ async def simple_crawler(root_url: str,
                          concurrency: int,
                          timeout: int,
                          save_urls: bool = False,
-                         verbose: bool = False) -> Optional[str]:
+                         verbose: bool = False) -> Optional[dict]:
     """
     Simple crawler function that walk to all pages in the same domain and
     search for assets useds. Return JSON string.
@@ -148,8 +148,7 @@ async def simple_crawler(root_url: str,
             del value['urls']
     if verbose:
         print(f'Total Requests: {count}')
-    result_json = json.dumps(result_map)
-    return result_json
+    return result_map
 
 
 if __name__ == '__main__':
@@ -162,7 +161,7 @@ if __name__ == '__main__':
             verbose=True)
         if result is not None:
             with open('output.json', 'w') as output_file:
-                output_file.write(result)
+                output_file.write(json.dumps(result))
             print(f'Finished. Look output.json file.')
         else:
             print('Timeout reached!')
