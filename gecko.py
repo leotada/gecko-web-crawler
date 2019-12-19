@@ -63,10 +63,6 @@ async def search_on_page(root_url: str, base_url: str, result_map: dict) -> bool
     Receive a url and a result map and do a search of links and assets on the
     page accessing url.
     """
-    # don't repeat a url
-    if base_url in result_map:
-        return False
-
     result: Dict = {'urls': [], 'assets': []}
     page_html = await get_html_from_url(base_url)
     if page_html is None:
@@ -91,7 +87,10 @@ async def search_on_page(root_url: str, base_url: str, result_map: dict) -> bool
 
 async def run_task(root_url: str, current_url: str,
                    result_map: dict) -> Optional[List[str]]:
-    print('URL: ', current_url)
+    # print('URL: ', current_url)
+    # don't repeat a url
+    if current_url in result_map:
+        return None
     result = await search_on_page(root_url, current_url, result_map)
     if result:
         return result_map[current_url]['urls']
@@ -99,12 +98,12 @@ async def run_task(root_url: str, current_url: str,
 
 
 async def main() -> None:
-    root_url = 'https://duckduckgo.com'
+    root_url = 'https://translate.google.com.br'
     save_urls = False
     result_map: Dict[str, Dict] = {}
     queue = [root_url]
     count = 0
-    concurrency = 5
+    concurrency = 50
 
     while queue:
         if len(queue) > concurrency:
@@ -128,8 +127,8 @@ async def main() -> None:
         for key, value in result_map.items():
             del value['urls']
     print(f'Total Requests: {count}')
+    print(f'Finished. Look output.json file.')
     result_json = json.dumps(result_map)
-    print(result_json)
     with open('output.json', 'w') as output_file:
         output_file.write(result_json)
 
