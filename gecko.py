@@ -58,7 +58,8 @@ async def get_html_from_url(url: str, timeout: int = 10) -> Optional[str]:
         return None
 
 
-async def search_on_page(root_url: str, base_url: str, result_map: dict) -> bool:
+async def search_on_page(root_url: str, base_url: str,
+                         result_map: dict) -> bool:
     """
     Receive a url and a result map and do a search of links and assets on the
     page accessing url.
