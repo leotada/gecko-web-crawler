@@ -3,6 +3,7 @@ from typing import List, Optional, Dict
 import re
 import json
 import asyncio
+from time import time
 
 import httpx
 
@@ -106,8 +107,9 @@ async def run_task(root_url: str,
 
 async def simple_crawler(root_url: str,
                          concurrency: int,
+                         timeout: int,
                          save_urls: bool = False,
-                         verbose: bool = False) -> str:
+                         verbose: bool = False) -> Optional[str]:
     """
     Simple crawler function that walk to all pages in the same domain and
     search for assets useds. Return JSON string.
@@ -115,6 +117,7 @@ async def simple_crawler(root_url: str,
     result_map: Dict[str, Dict] = {}
     queue = [root_url]
     count = 0
+    start_time = time()
 
     while queue:
         if len(queue) > concurrency:
@@ -136,11 +139,15 @@ async def simple_crawler(root_url: str,
         if verbose:
             print('Queue:', len(queue))
             print(f'Requests: {count}')
+        # timeout
+        if time() - start_time >= timeout:
+            return None
 
     if not save_urls:
         for _, value in result_map.items():
             del value['urls']
-    print(f'Total Requests: {count}')
+    if verbose:
+        print(f'Total Requests: {count}')
     result_json = json.dumps(result_map)
     return result_json
 
@@ -150,10 +157,14 @@ if __name__ == '__main__':
         result = await simple_crawler(
             root_url=input('Root URL: '),
             concurrency=20,
+            timeout=30,
             save_urls=False,
             verbose=True)
-        with open('output.json', 'w') as output_file:
-            output_file.write(result)
-        print(f'Finished. Look output.json file.')
+        if result is not None:
+            with open('output.json', 'w') as output_file:
+                output_file.write(result)
+            print(f'Finished. Look output.json file.')
+        else:
+            print('Timeout reached!')
 
     asyncio.run(main())
