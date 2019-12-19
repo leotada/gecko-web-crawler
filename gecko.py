@@ -86,9 +86,15 @@ async def search_on_page(root_url: str, base_url: str,
     return True
 
 
-async def run_task(root_url: str, current_url: str,
-                   result_map: dict) -> Optional[List[str]]:
-    # print('URL: ', current_url)
+async def run_task(root_url: str,
+                   current_url: str,
+                   result_map: dict,
+                   verbose: bool = False) -> Optional[List[str]]:
+    """
+    Run crawler task
+    """
+    if verbose:
+        print('URL:', current_url)
     # don't repeat a url
     if current_url in result_map:
         return None
@@ -98,41 +104,56 @@ async def run_task(root_url: str, current_url: str,
     return None
 
 
-async def main() -> None:
-    root_url = 'https://translate.google.com.br'
-    save_urls = False
+async def simple_crawler(root_url: str,
+                         concurrency: int,
+                         save_urls: bool = False,
+                         verbose: bool = False) -> str:
+    """
+    Simple crawler function that walk to all pages in the same domain and
+    search for assets useds. Return JSON string.
+    """
     result_map: Dict[str, Dict] = {}
     queue = [root_url]
     count = 0
-    concurrency = 50
 
     while queue:
         if len(queue) > concurrency:
             tasks = []
             for _ in range(concurrency):
-                tasks.append(run_task(root_url, queue.pop(0), result_map))
+                tasks.append(
+                    run_task(root_url, queue.pop(0), result_map, verbose))
             for response in await asyncio.gather(*tasks):
                 if response:
                     queue.extend(response)
                     count += 1
         else:
             current_url = queue.pop(0)
-            response = await run_task(root_url, current_url, result_map)
+            response = await run_task(root_url, current_url, result_map,
+                                      verbose)
             if response:
                 queue.extend(response)
                 count += 1
-        print('Queue:', len(queue))
-        print(f'Requests: {count}')
+        if verbose:
+            print('Queue:', len(queue))
+            print(f'Requests: {count}')
 
     if not save_urls:
-        for key, value in result_map.items():
+        for _, value in result_map.items():
             del value['urls']
     print(f'Total Requests: {count}')
-    print(f'Finished. Look output.json file.')
     result_json = json.dumps(result_map)
-    with open('output.json', 'w') as output_file:
-        output_file.write(result_json)
+    return result_json
 
 
 if __name__ == '__main__':
+    async def main() -> None:
+        result = await simple_crawler(
+            root_url=input('Root URL: '),
+            concurrency=20,
+            save_urls=False,
+            verbose=True)
+        with open('output.json', 'w') as output_file:
+            output_file.write(result)
+        print(f'Finished. Look output.json file.')
+
     asyncio.run(main())
